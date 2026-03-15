@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "Warehouse": {
+      "title": "Warehouse",
+      "description": "Storage locations including main warehouses, office stores, and vans.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the warehouse" },
+        "type": { "type": "string", "enum": ["Main warehouse", "Office Store", "Van"], "description": "Type of warehouse" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type"]
+    },
+    "Salesman": {
+      "title": "Salesman",
+      "description": "Sales personnel assigned to specific warehouses (usually Vans).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "warehouseId": { "type": "string", "description": "ID of the assigned warehouse" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "warehouseId"]
+    },
+    "Item": {
+      "title": "Item",
+      "description": "Inventory items.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "unit": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "sku"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "General transaction record for GRN, Transfers, Requests, etc.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["GRN", "MaterialRequest", "StockTransfer", "Invoice", "SalesReturn", "ItemHandover"] },
+        "date": { "type": "string", "format": "date-time" },
+        "fromWarehouseId": { "type": "string" },
+        "toWarehouseId": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": { "type": "string" },
+              "quantity": { "type": "number" },
+              "unit": { "type": "string" },
+              "price": { "type": "number" },
+              "reason": { "type": "string", "enum": ["Expired", "Damaged", "Other Reasons"] }
+            }
+          }
+        },
+        "total": { "type": "number" },
+        "reference": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["type", "date", "items"]
+    },
+    "Stock": {
+      "title": "Stock",
+      "description": "Current stock levels per warehouse and item.",
+      "type": "object",
+      "properties": {
+        "warehouseId": { "type": "string" },
+        "itemId": { "type": "string" },
+        "quantity": { "type": "number" }
+      },
+      "required": ["warehouseId", "itemId", "quantity"]
+    },
+    "User": {
+      "title": "User",
+      "description": "App user with roles and permissions.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "manager", "staff"] },
+        "permissions": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["email", "role"]
+    },
+    "ActivityLog": {
+      "title": "Activity Log",
+      "description": "Logs of user actions within the system.",
+      "type": "object",
+      "properties": {
+        "userEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userEmail", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/warehouses/{warehouseId}": { "schema": "Warehouse", "description": "Warehouses collection" },
+    "/salesmen/{salesmanId}": { "schema": "Salesman", "description": "Salesmen collection" },
+    "/items/{itemId}": { "schema": "Item", "description": "Items collection" },
+    "/transactions/{transactionId}": { "schema": "Transaction", "description": "Transactions collection" },
+    "/stock/{stockId}": { "schema": "Stock", "description": "Stock levels (composite key warehouseId_itemId)" },
+    "/users/{uid}": { "schema": "User", "description": "Users collection" },
+    "/activity_log/{logId}": { "schema": "ActivityLog", "description": "Activity logs collection" }
+  }
+}

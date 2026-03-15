@@ -1,0 +1,131 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: warehouses
+// Fields: name (string), type (string), createdAt (timestamp)
+//
+// Collection: salesmen
+// Fields: name (string), warehouseId (string), createdAt (timestamp)
+//
+// Collection: items
+// Fields: name (string), sku (string), unit (string), createdAt (timestamp)
+//
+// Collection: transactions
+// Fields: type (string), date (timestamp), fromWarehouseId (string), toWarehouseId (string), items (array), total (number), reference (string), createdBy (string)
+//
+// Collection: stock
+// Fields: warehouseId (string), itemId (string), quantity (number)
+//
+// Collection: users
+// Fields: email (string), role (string), permissions (array)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (getUserData().role == 'admin' ||
+         (request.auth.token.email == "info@halfanapp.com" && request.auth.token.email_verified == true));
+    }
+
+    function isManager() {
+      return isAuthenticated() && (getUserData().role == 'manager' || isAdmin());
+    }
+
+    function isStaff() {
+      return isAuthenticated() && (getUserData().role == 'staff' || isManager());
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validation Functions
+    function isValidWarehouse(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.type in ["Main warehouse", "Office Store", "Van"];
+    }
+
+    function isValidSalesman(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.warehouseId is string;
+    }
+
+    function isValidItem(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.sku is string;
+    }
+
+    function isValidTransaction(data) {
+      return data.type in ["GRN", "MaterialRequest", "StockTransfer", "Invoice", "SalesReturn", "ItemHandover"] &&
+             data.items is list;
+    }
+
+    function isValidStock(data) {
+      return data.warehouseId is string && data.itemId is string && data.quantity is number;
+    }
+
+    function isValidUser(data) {
+      return data.email is string && data.role in ["admin", "manager", "staff"];
+    }
+
+    // Rules
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isOwner(uid) || isAdmin());
+      allow update: if isAdmin() || (isOwner(uid) && request.resource.data.role == resource.data.role);
+    }
+
+    match /warehouses/{id} {
+      allow read: if isStaff();
+      allow create, update: if isManager() && isValidWarehouse(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /salesmen/{id} {
+      allow read: if isStaff();
+      allow create, update: if isManager() && isValidSalesman(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /items/{id} {
+      allow read: if isStaff();
+      allow create, update: if isManager() && isValidItem(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidTransaction(request.resource.data);
+      allow update: if isManager();
+    }
+
+    match /stock/{id} {
+      allow read: if isStaff();
+      allow write: if isStaff() && isValidStock(request.resource.data);
+    }
+
+    match /activity_log/{id} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userEmail == request.auth.token.email &&
+                      request.resource.data.timestamp == request.time;
+    }
+  }
+}
